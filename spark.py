@@ -1,4 +1,3 @@
-
 import sys
 from datetime import datetime
 from operator import add
@@ -55,6 +54,7 @@ def parse_log(log):
         print(log)
         return (log[0], datetime.strptime(log[3][1:], '%d/%b/%Y:%H:%M:%S'), None, None, None, None, None, None)
 
+
 if __name__ == "__main__":
 
     if True:
@@ -65,21 +65,17 @@ if __name__ == "__main__":
             .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/test.random") \
             .getOrCreate()
 
-        # people = spark.createDataFrame(
-        #     [("Bilbo Baggins", 50), ("Gandalf", 1000), ("Thorin", 195), ("Balin", 178), ("Kili", 77),
-        #      ("Dwalin", 169), ("Oin", 167), ("Gloin", 158), ("Fili", 82), ("Bombur", None)], ["name", "age"])
-        raw_rdd = spark.sparkContext.textFile("/Users/Yasir/Downloads/weblogs.txt").map(lambda line: line.split(" ")).map(parse_log)
+        raw_rdd = spark.sparkContext.textFile("/Users/Yasir/Downloads/weblogs.txt").map(
+            lambda line: line.split(" ")).map(parse_log)
 
-        # lines = spark.read.text("/Users/Yasir/Downloads/weblogs.txt").rdd.map(parse_log)
-        # enTuples = spark.sparkContext.textFile("/Users/Yasir/Downloads/weblogs.txt").map(lambda line: line.split('\n'))
-        # weblogdata = enTuples.map(parse_log)
-        df = spark.createDataFrame(raw_rdd, ['ip_address', 'date', 'method', 'path', 'response_code', 'browser', 'operating_system', 'browser_version'])
+        df = spark.createDataFrame(raw_rdd, ['ip_address', 'date', 'method', 'path', 'response_code', 'browser',
+                                             'operating_system', 'browser_version'])
 
         df.write.format("com.mongodb.spark.sql.DefaultSource").mode("append").save()
     else:
-        spark = SparkSession\
-            .builder\
-            .appName("PythonWordCount")\
+        spark = SparkSession \
+            .builder \
+            .appName("PythonWordCount") \
             .getOrCreate()
 
         dataArray = ['d1', 'd2', 'd3']
@@ -101,9 +97,9 @@ if __name__ == "__main__":
 
         lines = spark.read.text(sys.argv[1]).rdd.map(lambda r: r[0])
 
-        counts = lines.flatMap(lambda x: x.split(' '))\
-                      .map(lambda x: (x, 1))\
-                      .reduceByKey(add)
+        counts = lines.flatMap(lambda x: x.split(' ')) \
+            .map(lambda x: (x, 1)) \
+            .reduceByKey(add)
         output = counts.collect()
         for (word, count) in output:
             print("{}: {}".format(word, count))
