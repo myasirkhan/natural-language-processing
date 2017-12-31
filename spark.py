@@ -17,42 +17,28 @@ def parse_log(log):
     try:
         # [u'323.81.303.680', '-', '-', 3'[25/Oct/2011:01:41:00', 4'-0500]', 5'"GET', 6'/download/download6.zip', 'HTTP/1.1"', 8'200', u'0', u'"-"', 11'"Mozilla/5.0', u'(Windows;', u'U;', 14'Windows', 15'NT', 16'5.1;', u'en-US;', u'rv:1.9.0.19)', u'Gecko/2010031422', 18'Firefox/3.0.19"']
         # print ('ip_address: {}, date: {}, method: {}, path: {}, response_code: {}, browser: {}, operating_system: {}, browser_version: {}'.format(log[0], datetime.strptime(log[3][1:], '%d/%b/%Y:%H:%M:%S'), log[5][1:], log[6], log[8], log[11], '{} {}, {}'.format(log[14], log[15], log[16]), log[20]))
+        # ['ACBC', 2'B', 3'11012017' 4,'300']
         try:
-            ip = log[0]
+            name = log[0]
         except:
-            ip = None
+            name = None
         try:
-            time_str = datetime.strptime(log[3][1:], '%d/%b/%Y:%H:%M:%S')
+            letter = log[1]
         except:
-            time_str = None
+            letter = None
         try:
-            method = log[5][1:]
+            number = log[2]
         except:
-            method = None
+            number = None
         try:
-            path = log[6]
+            num = log[3]
         except:
-            path = None
-        try:
-            response_code = log[8]
-        except:
-            response_code = None
-        try:
-            browser = log[11][1:]
-        except:
-            browser = None
-        try:
-            operating_system = '{} {}, {}'.format(log[14], log[15], log[16])
-        except:
-            operating_system = None
-        try:
-            browser_version = log[20]
-        except:
-            browser_version = None
-        return (ip, time_str, method, path, response_code, browser, operating_system, browser_version)
+            num = None
+
+        return (name, letter, number, num)
     except:
         print(log)
-        return (log[0], datetime.strptime(log[3][1:], '%d/%b/%Y:%H:%M:%S'), None, None, None, None, None, None)
+        return (name, letter, number, num)
 
 
 if __name__ == "__main__":
@@ -61,15 +47,14 @@ if __name__ == "__main__":
         spark = SparkSession \
             .builder \
             .appName("PythonMongoConnection") \
-            .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/test.random") \
-            .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/test.random") \
+            .config("spark.mongodb.input.uri", "mongodb://127.0.0.1/test2.random1") \
+            .config("spark.mongodb.output.uri", "mongodb://127.0.0.1/test2.random1") \
             .getOrCreate()
 
-        raw_rdd = spark.sparkContext.textFile("/Users/Yasir/Downloads/weblogs.txt").map(
-            lambda line: line.split(" ")).map(parse_log)
+        raw_rdd = spark.sparkContext.textFile("/Users/Yasir/Downloads/weblogs 3.txt").map(
+            lambda line: line.split(",")).map(parse_log)
 
-        df = spark.createDataFrame(raw_rdd, ['ip_address', 'date', 'method', 'path', 'response_code', 'browser',
-                                             'operating_system', 'browser_version'])
+        df = spark.createDataFrame(raw_rdd, ['name', 'letter', 'number', 'num'])
 
         df.write.format("com.mongodb.spark.sql.DefaultSource").mode("append").save()
     else:
@@ -80,8 +65,9 @@ if __name__ == "__main__":
 
         dataArray = ['d1', 'd2', 'd3']
         rdd2 = spark.sparkContext.parallelize(dataArray)
-        for a in rdd2.collect():            print a
-        string = ["hasdasdasd___"]
+        for a in rdd2.collect():
+            print a
+        string = ["hasdasdasd___", "help___"]
         include_s = spark.sparkContext.parallelize(string).map(f).collect()
         print "With s included: {}".format(include_s)
 
