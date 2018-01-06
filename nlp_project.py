@@ -2,6 +2,8 @@ import gzip
 import json
 import os, re
 import cStringIO
+import operator
+
 from twitter import *
 from nltk.corpus import words
 from nltk.corpus import stopwords
@@ -10,6 +12,7 @@ splitter = "c565f1-780a-4411-b2cb-d7153aa2ad60"
 INDEX_DATA = {}
 INDEX_COUNT = {}
 DOC_ID_TO_FILE_NAME = {}
+IDX_LOADED_DATA = {}
 
 nltk_stopwords = list(stopwords.words('english'))
 settings = {}
@@ -18,7 +21,8 @@ try:
 except:
     print('Error reading settings')
     exit(1)
-TWEETS_PATH = '/Users/Yasir/PycharmProjects/nlp/tweets2'
+TWEETS_PATH = 'tweets2'
+TEST_PATH = 'tests'
 oauth = OAuth(settings.get('ACCESS_TOKEN'), settings.get('ACCESS_SECRET'), settings.get('CONSUMER_KEY'),
               settings.get('CONSUMER_SECRET'))
 
@@ -77,10 +81,10 @@ def find_common(docs_to_ret, param):
 
 def normalize_word(word):
     word = re.sub('\W+', '', word).strip().lower()
-    return '' if word in nltk_stopwords else word
+    return word
 
 
-def main(all_docs, search_terms):
+def main(all_docs):
     state_space = []
     doc_id = -1
     for doc_name in all_docs:
@@ -103,20 +107,22 @@ def main(all_docs, search_terms):
             INDEX_COUNT[str_key] += 1
 
 
-def print_doc_names(docs_to_ret, file_name_map):
+def print_doc_names(docs_to_ret, file_name_map, do_print=False):
     count = {}
     for c in docs_to_ret:
         count[c] = 1 if (c not in count) else count[c] + 1
-    for i in count:
-        if int(i) in file_name_map:
-            print("Found Doc: {0}, id: {1} and count: {2}".format(file_name_map[int(i)], i,
-                                                                  float(count[i]) / len(docs_to_ret)))
-        elif str(i) in file_name_map:
-            print("Found Doc: {0}, id: {1} and count: {2}".format(file_name_map[str(i)], i,
-                                                                  float(count[i]) / len(docs_to_ret)))
-        else:
-            print("Some Error for doc: " + str(i))
-
+    max_count = max(count.iteritems(), key=operator.itemgetter(1))[0]
+    if do_print:
+        for i in count:
+            if int(i) in file_name_map:
+                print("Found Doc: {0}, id: {1} and count: {2}".format(file_name_map[int(i)], i,
+                                                                      float(count[i]) / len(docs_to_ret)))
+            elif str(i) in file_name_map:
+                print("Found Doc: {0}, id: {1} and count: {2}".format(file_name_map[str(i)], i,
+                                                                      float(count[i]) / len(docs_to_ret)))
+            else:
+                print("Some Error for doc: " + str(i))
+    return max_count
 
 def search_and_in_idx(tokens, index):
     docs_to_ret = []
@@ -180,21 +186,34 @@ def compress_string_to_file(value, filename='idx.dat'):
             return
 
 def populate_twitter_data():
-    streams_to_handle = ["iamamirofficial", "iamAhmadshahzad"]
+    streams_to_handle = ["BarackObama", "realDonaldTrump", "JustinTrudeau", "BillClinton"]
     for s in streams_to_handle:
         handle_twitter_stream(s)
 
-def search_string():
+def search_string(search_term):
     # search_term = 'We hosted a Town Hall in New Delhi with @BarackObama and young leaders'
     # search_term = "On Tuesday, SpaceX will attempt to refly both an orbital rocket and spacecraft for the first"
     # search_term = "What a way 2 serve ur country.. what a way 2 show endurance. A fantastic achievement brother... https://t.co/uvzLRcKLv3"
-    search_term = "I wld specially Thank my Nation &amp; fans for supporting me throughout"
+
+    global IDX_LOADED_DATA
+    return search_from_tokens(IDX_LOADED_DATA, search_term)
+
+
+def search_from_tokens(data, search_term):
+    # tokens = search_term.replace(" ", " AND ").split("AND")
+    # search_data = search_and_in_idx(tokens, data.get('INDEX_DATA'))
+    tokens = search_term.replace(" ", " OR ").split("OR")
+    search_data = search_or_in_idx(tokens, data.get('INDEX_DATA'))
+    return print_doc_names(search_data, data.get('DOC_ID_TO_FILE_NAME'))
+
+def load_data():
+
     index_file_name = 'indexes/idx_tweets.dat'
     index_exists = os.path.exists(index_file_name)
-    if index_exists:
+    if (index_exists):
         file_data = decompress_string_from_file(index_file_name)
-        data = json.loads(file_data)
-        search_from_tokens(data, search_term)
+        global IDX_LOADED_DATA
+        IDX_LOADED_DATA = json.loads(file_data)
     else:
         path = TWEETS_PATH
         docs_list = {}
@@ -208,24 +227,34 @@ def search_string():
                 read_data = f.read()
                 docs_list[filename] = read_data
 
-        main(docs_list, search_term)
-        idx_data = {
+        main(docs_list)
+        IDX_LOADED_DATA = {
             'INDEX_DATA': INDEX_DATA,
             'DOC_ID_TO_FILE_NAME': DOC_ID_TO_FILE_NAME,
         }
-        search_from_tokens(idx_data, search_term)
-        compress_string_to_file(idx_data, index_file_name)
-
-
-def search_from_tokens(data, search_term):
-    # tokens = search_term.replace(" ", " AND ").split("AND")
-    # search_data = search_and_in_idx(tokens, data.get('INDEX_DATA'))
-    tokens = search_term.replace(" ", " OR ").split("OR")
-    search_data = search_or_in_idx(tokens, data.get('INDEX_DATA'))
-    print_doc_names(search_data, data.get('DOC_ID_TO_FILE_NAME'))
+        compress_string_to_file(IDX_LOADED_DATA, index_file_name)
 
 
 if __name__ == '__main__':
     # search_string()
     # populate_twitter_data()
-    search_string()
+    files_list = list(os.listdir(TEST_PATH))
+    load_data()
+    data = {}
+
+    for filename in files_list:
+        with open("{0}/{1}".format(TEST_PATH, filename)) as f:
+            read_data = f.read().split('\n')
+            for t in read_data:
+                try:
+                    if filename not in data:
+                        data[filename] = []
+                    data[filename].append(filename == IDX_LOADED_DATA.get('DOC_ID_TO_FILE_NAME')[str(search_string(t))])
+                    # print filename + ": " + str(data[filename])
+                except:
+                    pass
+
+    for l in data:
+        if data.get(l):
+            print 'accuracy for {}: {}'.format(l, float(data.get(l).count(True))/len(data.get(l)))
+
